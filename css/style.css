@@ -1,0 +1,31 @@
+.title, h1, h2 {
+    text-align: center;
+}
+
+.st-emotion-cache-1o4beor p {
+    text-align: center;
+}
+
+h4, h5 {
+    text-align: left;
+}
+
+.ms-20{
+    margin: 20px;
+}
+
+.ms-40{
+    margin: 40px;
+}
+
+.ms-60{
+    margin: 60px;
+}
+
+.ms-80{
+    margin: 80px;
+}
+
+.paragraph {
+    text-align: justify;
+}
