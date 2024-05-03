@@ -20,10 +20,7 @@
     $ pip install -r requirements.txt
     ```
 
-  - Jalankan program
-    ```
-    $ RUN.bat
-    ```
+  - Jalakan file `RUN.bat` untuk memulai program
 
 
 ## Dukungan atau Kontak

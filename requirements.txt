@@ -3,5 +3,6 @@ pandas
 matplotlib
 librosa
 scikit-learn
+pillow
 streamlit
 streamlit-option-menu

@@ -4,6 +4,7 @@ import streamlit as st
 
 import os, itertools
 
+from PIL import Image
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -112,9 +113,8 @@ def show_caption(text, size= 3, division= False):
         st.markdown("---")
 
 def show_paragraf(text):
-    st.markdown(
-        f"<div class= \"paragraph\">{text}</div>", unsafe_allow_html= True
-    )
+    st.markdown(f"<div class= \"paragraph\">{text}</div>",
+                unsafe_allow_html= True)
 
 """Load file
 
@@ -127,8 +127,8 @@ filepath : str
 
 Returns
 -------
-self : object DataFrame or str
-    Obyek dengan informasi yang berhasil diekstrak.
+self : object
+    Obyek dengan informasi yang berhasil didapatkan.
 """
 
 def get_csv(filepath):
@@ -137,7 +137,43 @@ def get_csv(filepath):
 def get_excel(filepath):
     return pd.read_excel(filepath)
 
-# ----------
+def get_img(filepath):
+    return Image.open(filepath)
+
+def get_files(dirpath):
+    filepaths, filenames, labels = [], [], []
+    err = False
+    for folder_label in os.listdir(dirpath):
+        folder_path = os.path.join(dirpath, folder_label)
+        if os.path.isdir(folder_path):
+            for file_name in os.listdir(folder_path):
+                file_path = os.path.join(folder_path, file_name)
+
+                filepaths.append(file_path)
+                filenames.append(file_name)
+                labels.append(folder_label)
+        else:
+            err = True
+    if err:
+        st.code(
+            """Struktur data tidak sesuai ekspektasi.
+
+main-directory
+|- label-1
+|  |- file-1 -> n
+|
+|- label-2
+|  |- file-1 -> n
+            """
+        )
+    df = pd.DataFrame({
+        "filepaths": filepaths,
+        "filenames": filenames,
+        "labels": labels
+    })
+    return df
+
+# ------------------------------------------------------------------------------
 
 def mk_dir(dirpath):
     """Buat folder
