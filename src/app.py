@@ -1,6 +1,7 @@
 # LIBRARY / MODULE / PUSTAKA
 
 import streamlit as st
+from streamlit import session_state as ss
 from streamlit_option_menu import option_menu
 
 from functions import *
@@ -21,7 +22,7 @@ st.markdown(
         #MainMenu {visibility: hidden;}
         header {visibility: hidden;}
         footer {visibility: hidden;}
-        .st-emotion-cache-z5fcl4 {padding-top: 2rem;}
+        .st-emotion-cache-1jicfl2 {padding-top: 2rem;}
     </style>""",
     unsafe_allow_html= True
 )
@@ -135,21 +136,89 @@ class MyApp():
                 st.dataframe(df, use_container_width= True, hide_index= True)
 
                 mk_dir("./data/dataframe")
-                df.to_csv("./data/dataframe/daftar-musik.csv")
+                df.to_csv("./data/dataframe/daftar-musik.csv", index= False)
         except Exception as e:
             self._exceptionMessage(e)
 
     def _pageEkstraksiFitur(self):
-        """Halaman ekstraksi fitur"""
+        """Halaman ekstraksi fitur
+
+        Halaman ini akan mengekstrak fitur-fitur data musik dengan membaca
+        filepath dari DataFrame list-musik. Number input disediakan untuk
+        optimasi pada durasi musik.
+        """
         try:
             ms_20()
+            show_text("Ekstraksi Fitur", division= True)
+
+            df = get_csv("./data/dataframe/daftar-musik.csv")
+
+            left, right = ml_right()
+            with left:
+                ms_20()
+                duration = st.number_input(
+                    "Durasi Musik (detik)", min_value= 1, value= 30, step= 1,
+                    key= "Number input untuk nilai durasi musik"
+                )
+
+                ms_40()
+                btn_extract = st.button(
+                    "Submit", key= "Button fit ekstraksi fitur",
+                    use_container_width= True
+                )
+
+            with right:
+                ms_20()
+                if btn_extract or ss.fit_extract:
+                    ss.fit_extract = True
+                    with st.spinner("Feature Extraction is running..."):
+                        res = feature_extraction(df, duration)
+                    res.to_csv("./data/dataframe/music_features.csv",
+                               index= False)
+                    st.dataframe(res, use_container_width= True,
+                                 hide_index= True)
         except Exception as e:
             self._exceptionMessage(e)
 
     def _pageKlasifikasi(self):
-        """Halaman klasifikasi"""
+        """Halaman klasifikasi
+
+        Halaman ini untuk setting dan training model klasifikasi.
+        """
         try:
             ms_20()
+            show_text("Klasifikasi", division= True)
+
+            df = get_csv("./data/dataframe/music_features.csv")
+            features = df.iloc[:, 1:-1]
+            labels = df.iloc[:, -1]
+            feature_names = features.columns
+
+            norm_features = min_max_scaler(feature_names, features)
+
+            left, right = ml_right()
+            with left:
+                fold = st.selectbox(
+                    "Jumlah subset Fold", [4, 5, 10], index= 1,
+                    key= "Selectbox untuk nilai k-Fold"
+                )
+
+                neighbor = st.number_input(
+                    "Masukkan jumlah tetangga", min_value= 3,
+                    max_value= int(len(labels) / 2),
+                    key= "Number input k tetangga"
+                )
+
+                ms_40()
+                btn_classify = st.button(
+                    "Submit", use_container_width= True,
+                    key= "Button fit klasifikasi"
+                )
+            with right:
+                ms_20()
+                if btn_classify or ss.fit_classify:
+                    ms_20()
+# ------------------------------------------------------------------------------
         except Exception as e:
             self._exceptionMessage(e)
 
@@ -159,7 +228,7 @@ class MyApp():
             ms_20()
         except Exception as e:
             self._exceptionMessage(e)
-# ------------------------------------------------------------------------------
+
     def main(self):
         """Main program
         
@@ -168,6 +237,11 @@ class MyApp():
         """
         with st.container():
             selected = self._navigation()
+
+            if "fit_extract" not in ss:
+                ss.fit_extract = False
+            if "fit_classify" not in ss:
+                ss.fit_classify = False
 
             if selected == self.menu_[0]:
                 self._pageBeranda()

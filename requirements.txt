@@ -2,6 +2,7 @@ numpy
 pandas
 matplotlib
 librosa
+setuptools
 scikit-learn
 pillow
 streamlit

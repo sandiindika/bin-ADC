@@ -173,8 +173,6 @@ main-directory
     })
     return df
 
-# ------------------------------------------------------------------------------
-
 def mk_dir(dirpath):
     """Buat folder
     
@@ -188,3 +186,115 @@ def mk_dir(dirpath):
     """
     if not os.path.exists(dirpath):
         os.makedirs(dirpath)
+
+# CUSTOM FUNCTIONS
+
+@st.cache_data(ttl= 3600, show_spinner= "Fetching data...")
+def feature_extraction(df, duration= 30):
+    """Ekstraksi Fitur
+
+    Identifikasi dan pemilihan informasi penting dari kumpulan data.
+
+    Parameters
+    ----------
+    df : object DataFrame
+        Object DataFrame tempat semua file musik (path file) tersimpan.
+
+    duration : int or float
+        Durasi musik yang ingin di ekstraksi fiturnya.
+
+    Returns
+    -------
+    res : object DataFrame
+        DataFrame dari data musik dengan fitur yang telah di ekstraksi dan label
+        genre musik.
+    """
+    rms_list, mfcc_list, zcr_list, s_c_list, s_r_list = [], [], [], [], []
+    for _dir in df.iloc[:, 0]:
+        y, sr = librosa.load(_dir, duration= duration)
+
+        mfcc = librosa.feature.mfcc(y= y, sr= sr, n_mfcc= 13)
+        zcr = librosa.feature.zero_crossing_rate(y)
+        s_c = librosa.feature.spectral_centroid(y= y, sr= sr)
+        s_r = librosa.feature.spectral_rolloff(y= y, sr= sr)
+        
+        rms_features = np.sqrt(np.mean(y ** 2))
+        mfcc_features = np.mean(mfcc, axis= 1)
+        zcr_features = np.mean(zcr)
+        s_c_features = np.mean(s_c)
+        s_r_features = np.mean(s_r)
+
+        rms_list.append(rms_features)
+        mfcc_list.append(mfcc_features)
+        zcr_list.append(zcr_features)
+        s_c_list.append(s_c_features)
+        s_r_list.append(s_r_features)
+
+    res = pd.DataFrame({
+        "filename": df.iloc[:, 1],
+        "rms": rms_list,
+        **{f"mfcc_{i + 1}": [x[i] for x in mfcc_list] for i in range(13)},
+        "zcr": zcr_list,
+        "spectral_centroid": s_c_list,
+        "spectral_rolloff": s_r_list,
+        "genre": df.iloc[:, -1]
+    })
+    return res
+
+def min_max_scaler(feature_names, df):
+    """Transformasikan fitur dengan menskalakan setiap fitur ke rentang tertentu
+
+    Estimator ini menskalakan dan menerjemahkan setiap fitur satu per satu
+    sehingga berada dalam rentang tertentu pada set pelatihan, misalnya antara
+    nol dan satu.
+    
+    Transformasi dilakukan dengan::
+    
+        X_std = (X - X.min(axis=0)) / (X.max(axis=0) - X.min(axis=0))
+        X_scaled = X_std * (max - min) + min
+
+    dimana min, max = feature_range.
+
+    Transformasi ini sering digunakan sebagai alternatif terhadap mean nol,
+    penskalaan unit varians.
+
+    Parameters
+    ----------
+    feature_names : ndarray of shape
+        Nama fitur dari kumpulan data (DataFrame). Didefinisikan hanya ketika
+        `X` memiliki nama fitur yang semuanya berupa string.
+
+    df : object DataFrame
+        Object DataFrame yang menyimpan fitur musik beserta label genrenya.
+    
+    Returns
+    -------
+    self : object DataFrame
+        DataFrame dari data musik dengan fitur yang telah di skalakan. 
+    """
+    for col in feature_names: # loop untuk setiap fitur dalam `X`
+        min_ = df[col].min()
+        max_ = df[col].max()
+        df[col] = (df[col] - min_) / (max_ - min_)
+    return df
+
+def euclidean_distance(point1, point2):
+    """Euclidean Distance
+
+    Fungsi untuk menghitung matrix menggunakan rumus Euclidean
+
+    Parameters
+    ----------
+    point1 : str or float
+        Nilai untuk point pertama.
+
+    point2 : str or float
+        Nilai untuk point kedua.
+
+    Returns
+    -------
+    self : float
+        Nilai hasil perhitungan menggunakan rumus euclidean distance.
+    """
+    return np.sqrt(np.sum((point1 - point2) ** 2))
+# ------------------------------------------------------------------------------
