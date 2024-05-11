@@ -2,7 +2,7 @@
 
 import streamlit as st
 
-import os, itertools
+import os, pickle
 
 from PIL import Image
 import numpy as np
@@ -10,8 +10,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import librosa
 
+from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import KFold
-from sklearn.metrics import accuracy_score, confusion_matrix
+from sklearn.metrics import accuracy_score
 
 from warnings import simplefilter
 
@@ -297,4 +298,133 @@ def euclidean_distance(point1, point2):
         Nilai hasil perhitungan menggunakan rumus euclidean distance.
     """
     return np.sqrt(np.sum((point1 - point2) ** 2))
-# ------------------------------------------------------------------------------
+
+def weighted_knn(X_train, y_train, X_test, neighbor):
+    """Menerapkan algoritma k-Nearest Neighbors dengan bobot jarak
+
+    Estimator ini mengklasifikasikan sampel uji dengan menghitung jarak antara
+    setiap sampel uji dan sampel pelatihan, lalu memberi bobot pada kelas
+    berdasarkan jaraknya. Semakin dekat suatu sampel uji dengan sampel pelatihan
+    semakin besar bobotnya. Kelas dari sampel uji ditentukan dengan
+    memperhitungkan bobot kelas dari tetangga terdekat.
+
+    Parameters
+    ----------
+    X_train : ndarray
+        Array numpy dari sampel pelatihan.
+
+    y_train : ndarray
+        Array numpy dari label kelas untuk sampel pelatihan.
+
+    X_test : ndarray
+        Array numpy dari sampel uji.
+
+    neighbor : int
+        Jumlah tetangga terdekat yang akan dipertimbangkan dalam klasifikasi.
+
+    Returns
+    -------
+    y_pred : Array numpy dari label kelas yang diprediksi untuk sampel uji.
+    """
+    num_train = X_train.shape[0]
+    num_test = X_test.shape[0]
+    y_pred = np.zeros(num_test)
+
+    for i in range(num_test):
+        distance = np.zeros(num_train)
+        for j in range(num_train):
+            distance[j] = euclidean_distance(X_test[i], X_train[j])
+        nearest_indices = np.argsort(distance)[:neighbor]
+        weights = 1 / (distance[nearest_indices] + 1e-10)
+
+        class_weights = {}
+        for index, label in enumerate(y_train[nearest_indices]):
+            class_weights[label] = class_weights.get(label, 0) + weights[index]
+        y_pred[i] = max(class_weights, key= class_weights.get)
+    return y_pred
+
+@st.cache_data(ttl= 3600, show_spinner= "Fetching data...")
+def classify(features, labels, n_fold, neighbor= 5):
+    """ Menerapkan algoritma klasifikasi menggunakan metode K-Fold Cross
+    Validation dengan k-Nearest Neighbors dengan bobot jarak
+
+    Fungsi ini membagi data menjadi sejumlah lipatan (folds) dan melakukan
+    klasifikasi pada setiap lipatan menggunakan algoritma k-NN dengan bobot
+    jarak. Setelah itu, fungsi menghitung dan mengembalikkan rata-rata akurasi
+    dari seluruh lipatan.
+
+    Parameters
+    ----------
+    features : object DataFrame
+        DataFrame yang berisi fitur-fitur dari data.
+
+    labels : object DataFrame
+        DataFrame yang berisi label kelas untuk setiap sampel.
+
+    n_fold : int
+        Jumlah lipatan (folds) dalam K-Fold Cross Validation.
+
+    neighbor : int, default= 5
+        Jumlah tetangga terdekat yang akan dipertimbangkan dalam klasifikasi.
+
+    Returns
+    -------
+    scores : list
+        Daftar score dari setiap lipatan (folds).
+
+    avg_score : float
+        Rata-rata akurasi dari klasifikasi pada setiap lipatan.
+    """
+    kfold = KFold(n_splits= n_fold, shuffle= True, random_state= 42)
+    encoder = LabelEncoder()
+    features = features.values
+    labels = labels.values
+
+    list_test, list_predict = [], []
+    scores = []
+    avg_score = 0
+
+    for tr_index, ts_index in kfold.split(features):
+        X_train, X_test = features[tr_index], features[ts_index]
+        y_train, y_test = labels[tr_index], labels[ts_index]
+
+        y_train_enc = encoder.fit_transform(y_train)
+        
+        y_pred = weighted_knn(X_train, y_train_enc, X_test, neighbor)
+        y_pred = [int(x) for x in y_pred]
+        y_pred = encoder.inverse_transform(y_pred)
+
+        score = accuracy_score(y_test, y_pred)
+        scores.append(score)
+        avg_score += score
+
+        list_test.append(y_test)
+        list_predict.append(y_pred)
+
+    mk_dir("./data/pickle")
+    with open("./data/pickle/actual_labels.pickle", "wb") as f:
+        pickle.dump(list_test, f)
+    with open("./data/pickle/predict_labels.pickle", "wb") as f:
+        pickle.dump(list_predict, f)
+    return scores, avg_score / n_fold
+
+def plot_scores(scores):
+    """ Memplot skor akurasi untuk setiap lipatan (fold)
+
+    Fungsi ini menghasilkan plot skor akurasi untuk setiap lipatan dalam K-Fold
+    Cross Validation. Plot menunjukkan bagaimana akurasi berubah pada setiap
+    lipatan dan membantu dalam mengidentifikasi variasi kinerja model pada data
+    yang berbeda.
+
+    Parameters
+    ----------
+    scores : list
+        List yang berisi skor akurasi untuk setiap lipatan dalam K-Fold.
+    """
+    fig = plt.figure(figsize= (10, 5))
+    plt.plot(range(1, len(scores) + 1), scores, marker= "o")
+    plt.xlabel("Fold")
+    plt.ylabel("Accuracy Score")
+    plt.title("Accuracy Score across Folds")
+    plt.grid(True)
+    st.pyplot(fig)

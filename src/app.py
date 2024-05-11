@@ -58,10 +58,8 @@ class MyApp():
     def __init__(self, message= False):
         self.message = message
         self.pathdata = "./data/music"
-        self.menu_ = ["Beranda", "Data Musik", "Ekstraksi Fitur", "Klasifikasi",
-                      "Evaluasi"]
-        self.icons_ = ["house", "music-note-beamed", "soundwave",
-                       "bar-chart", "clipboard-data"]
+        self.menu_ = ["Beranda", "Data Musik", "Ekstraksi Fitur", "Klasifikasi"]
+        self.icons_ = ["house", "music-note-beamed", "soundwave", "bar-chart"]
      
     def _navigation(self):
         """Navigasi sistem / Sidebar
@@ -217,15 +215,13 @@ class MyApp():
             with right:
                 ms_20()
                 if btn_classify or ss.fit_classify:
-                    ms_20()
-# ------------------------------------------------------------------------------
-        except Exception as e:
-            self._exceptionMessage(e)
-
-    def _pageEvaluasi(self):
-        """Halaman evaluasi"""
-        try:
-            ms_20()
+                    ss.fit_classify = True
+                    with st.spinner("Classification is running..."):
+                        scores, avg_score = classify(features, labels, fold, neighbor)
+                    
+                    st.success("Pelatihan model berhasil!")
+                    plot_scores(scores)
+                    st.info(f"Rata-rata score model: {avg_score * 100:.2f}%")
         except Exception as e:
             self._exceptionMessage(e)
 
@@ -251,8 +247,6 @@ class MyApp():
                 self._pageEkstraksiFitur()
             elif selected == self.menu_[3]:
                 self._pageKlasifikasi()
-            elif selected == self.menu_[4]:
-                self._pageEvaluasi()
 
 if __name__ == "__main__":
     app = MyApp(message= True)
